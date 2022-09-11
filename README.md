@@ -104,19 +104,20 @@ compact_view: false
 
 Here is what every option means:
 
-| Name               |   Type    | Default      | Description                                      |
-| ------------------ | :-------: | ------------ | ------------------------------------------------ |
-| `type`             | `string`  | **Required** | `custom:purifier-card`                           |
-| `entity`           | `string`  | **Required** | An entity_id within the `fan` domain.            |
-| `show_name`        | `boolean` | `true`       | Show friendly name of the purifier.              |
-| `show_state`       | `boolean` | `true`       | Show state of the purifier.                      |
-| `show_preset_mode` | `boolean` | `true`       | Show preset mode of the purifier in the header.  |
-| `show_toolbar`     | `boolean` | `true`       | Show toolbar with shortcuts.                     |
-| `compact_view`     | `boolean` | `false`      | Compact view without image.                      |
-| `aqi`              | `object`  | Optional     | Custom entity or attribute for AQI value.        |
-| `stats`            | `object`  | Optional     | Custom per state stats for your purifier cleaner |
-| `shortcuts`        | `object`  | Optional     | Custom shortcuts for your purifier cleaner.      |
-| `platform`         | `string`  | Optional     | Default `xiaomi_miio_airpurifier`                |
+| Name               |   Type    | Default      | Description                                                                          |
+| ------------------ | :-------: | ------------ | ------------------------------------------------------------------------------------ |
+| `type`             | `string`  | **Required** | `custom:purifier-card`                                                               |
+| `entity`           | `string`  | **Required** | An entity_id within the `fan` domain.                                                |
+| `show_name`        | `boolean` | `true`       | Show friendly name of the purifier.                                                  |
+| `show_state`       | `boolean` | `true`       | Show state of the purifier.                                                          |
+| `show_preset_mode` | `boolean` | `true`       | Show preset mode of the purifier in the header.                                      |
+| `show_toolbar`     | `boolean` | `true`       | Show toolbar with shortcuts.                                                         |
+| `compact_view`     | `boolean` | `false`      | Compact view without image.                                                          |
+| `aqi`              | `object`  | Optional     | Custom entity or attribute for AQI value.                                            |
+| `stats`            | `object`  | Optional     | Custom per state stats for your purifier cleaner                                     |
+| `shortcuts`        | `object`  | Optional     | Custom shortcuts for your purifier cleaner.                                          |
+| `speed`            | `object`  | Optional     | Custom speed entity if [fan speed does not work](#why-cant-i-see-nor-set-fan-speed). |
+| `platform`         | `string`  | Optional     | Default `xiaomi_miio_airpurifier`                                                    |
 
 ### `aqi` object
 
@@ -156,6 +157,14 @@ The card will automatically try to figure out which one of shortcuts is currentl
 1. It's a service.
 2. `entity`'s `percentage` attribute is equal to `shortcut`'s `percentage`.
 3. `entity`'s `preset_mode` attribute is equal to `shortcut`'s `preset_mode`.
+
+### `speed` object
+
+You can define number entity to be used instead of `fan.set_percentage` if [fan speed does not work](#why-cant-i-see-nor-set-fan-speed).
+| Name | Type | Default | Description |
+| ------------------ | :------: | -------- | ------------------------------------------------------------------------------------------------- |
+| `entity_id` | `string` | Optional | An `number` entity_id with favorite speed, i.e. `number.mi_air_purifier_3c_favorite_motor_speed`. |
+| `sensor_entity_id` | `string` | Optional | An `sensor` entity_id with rpm state, i.e. `sensor.mi_air_purifier_3c_motor_speed`. |
 
 ## Theming
 
@@ -244,7 +253,7 @@ This card relies on basic fan services, like `toggle`, `turn_on`, `turn_off`, et
 
 If this card works with your air purifier, please open a PR and your model to the list.
 
-- Air Purifier 3/3H
+- Air Purifier 3/3H/3C
 - Air Purifier 2/2H/2S
 - Air Purifier Pro
 - Blueair Classic 480i/680i
@@ -261,6 +270,13 @@ If this card works with your air purifier, please open a PR and your model to th
 Want to contribute to the project?
 
 First of all, thanks! Check [contributing guideline](./CONTRIBUTING.md) for more information.
+
+## Frequently Asked Questions
+
+### Why can't I see nor set fan speed?
+
+If you are seeing `Failed to call service fan/set_percentage. expected int for dictionary value @ data['percentage']` error message when you try to change fan speed then your purifier doesn't support service `fan.set_percentage`.  
+Set `speed` in configuration to fix this issue.
 
 ## Inspiration
 

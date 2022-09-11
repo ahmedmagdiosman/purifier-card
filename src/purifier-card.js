@@ -120,15 +120,49 @@ class PurifierCard extends LitElement {
     return 2;
   }
 
+  speedEntityConfigured() {
+    return (
+      this.config.speed !== undefined &&
+      this.config.speed.entity_id !== undefined
+    );
+  }
+
   shouldUpdate(changedProps) {
-    return hasConfigOrEntityChanged(this, changedProps);
+    if (hasConfigOrEntityChanged(this, changedProps)) {
+      return true;
+    }
+
+    if (this.speedEntityConfigured()) {
+      const oldHass = changedProps.get('hass');
+      if (oldHass) {
+        return (
+          oldHass.states[this.config.speed.entity_id] !==
+          this.hass.states[this.config.speed.entity_id]
+        );
+      }
+    }
+
+    return false;
   }
 
   updated(changedProps) {
+    const oldHass = changedProps.get('hass');
+    if (!oldHass) {
+      return;
+    }
+
     if (
-      changedProps.get('hass') &&
-      changedProps.get('hass').states[this.config.entity] !==
-        this.hass.states[this.config.entity]
+      oldHass.states[this.config.entity] !==
+      this.hass.states[this.config.entity]
+    ) {
+      this.requestInProgress = false;
+      return;
+    }
+
+    if (
+      this.speedEntityConfigured() &&
+      oldHass.states[this.config.speed.entity_id] !==
+        this.hass.states[this.config.speed.entity_id]
     ) {
       this.requestInProgress = false;
     }
@@ -154,7 +188,21 @@ class PurifierCard extends LitElement {
   }
 
   handlePercentage(e) {
-    const percentage = e.detail.value;
+    this.setPercentage(e.detail.value);
+  }
+
+  setPercentage(percentage) {
+    if (this.speedEntityConfigured()) {
+      const { entity_id } = this.config.speed;
+      const {
+        attributes: { min, max, step },
+      } = this.hass.states[entity_id];
+      const value =
+        Math.round((percentage * (max - min) * 0.01 + min) / step) * step;
+      this.callService('number.set_value', { entity_id, value });
+      return;
+    }
+
     this.callService('fan.set_percentage', { percentage });
   }
 
@@ -169,6 +217,24 @@ class PurifierCard extends LitElement {
       this.requestInProgress = true;
       this.requestUpdate();
     }
+  }
+
+  getPercentageFromRPM() {
+    if (!this.speedEntityConfigured()) return undefined;
+
+    let rpm_state;
+    if (
+      this.entity.attributes.preset_mode != 'Favorite' &&
+      this.config.speed.sensor_entity_id !== undefined
+    )
+      rpm_state = this.hass.states[this.config.speed.sensor_entity_id].state;
+    else rpm_state = this.hass.states[this.config.speed.entity_id].state;
+
+    const {
+      attributes: { min, max },
+    } = this.hass.states[this.config.speed.entity_id];
+    const percentage = ((rpm_state - min) / (max - min)) * 100;
+    return Math.min(100, Math.max(0, percentage));
   }
 
   renderPresetMode() {
@@ -238,10 +304,19 @@ class PurifierCard extends LitElement {
   }
 
   renderSlider() {
-    const {
-      state,
-      attributes: { percentage, percentage_step },
-    } = this.entity;
+    const { state } = this.entity;
+
+    let percentage, percentage_step;
+    if (this.speedEntityConfigured()) {
+      const {
+        attributes: { min, max, step },
+      } = this.hass.states[this.config.speed.entity_id];
+      percentage = Math.round(this.getPercentageFromRPM());
+      percentage_step = ((max - min) / step) * 0.01;
+    } else {
+      percentage = this.entity.percentage;
+      percentage_step = this.entity.percentage_step;
+    }
 
     const disabled = state !== 'on';
     const image = !disabled ? workingImg : standbyImg;
@@ -257,9 +332,7 @@ class PurifierCard extends LitElement {
         </round-slider>
         <img src=${image} alt="purifier is ${state}" class="image" />
         <div class="slider-center">
-          <div class="slider-content">
-            ${this.renderAQI()}
-          </div>
+          <div class="slider-content">${this.renderAQI()}</div>
           <div class="slider-value">
             ${percentage ? `${percentage}%` : nothing}
           </div>
@@ -360,13 +433,16 @@ class PurifierCard extends LitElement {
           }
 
           if (percentage) {
-            this.callService('fan.set_percentage', { percentage });
+            this.setPercentage(percentage);
           }
         };
 
         const isActive =
           service ||
-          percentage === attributes.percentage ||
+          percentage ===
+            (attributes.percentage !== undefined
+              ? attributes.percentage
+              : this.getPercentageFromRPM()) ||
           preset_mode === attributes.preset_mode;
 
         const className = isActive ? 'active' : '';
@@ -419,9 +495,7 @@ class PurifierCard extends LitElement {
       <ha-card>
         <div class="preview">
           <div class="header">
-            <div class="tips">
-              ${this.renderPresetMode()}
-            </div>
+            <div class="tips">${this.renderPresetMode()}</div>
             <ha-icon-button
               class="more-info"
               icon="mdi:dots-vertical"
